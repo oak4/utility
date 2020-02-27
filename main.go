@@ -88,6 +88,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	fmt.Fprintln(f, "set define off;")
 	fmt.Fprintln(f, "INSERT INTO STATUS VALUES(1,'ACTIV');")
 	for key, value := range categories {
 
