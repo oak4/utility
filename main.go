@@ -41,14 +41,10 @@ func trimStringToLength(st string, size int) string {
 	return st[0:size]
 }
 
-func main() {
-	apiKey := os.Getenv("OAK4NEWSKEY")
-	authors := make(map[string]int)
-	sources := make(map[string]int)
-	medias := make(map[string]int)
-	link := getLink(apiKey, "technology")
+func getArticles(apiKey, category string) response {
+	link := getLink(apiKey, category)
 
-	m := response{}
+	message := response{}
 	resp, err := http.Get(link)
 	if err != nil {
 		fmt.Println(err)
@@ -57,41 +53,74 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = json.Unmarshal(body, &m)
+	err = json.Unmarshal(body, &message)
 	if err != nil {
 		fmt.Println(err)
 	}
+	return message
 
-	f, err := os.Create("techonlogy.sql")
+}
+
+func main() {
+	apiKey := os.Getenv("OAK4NEWSKEY")
+	authors := make(map[string]int)
+	sources := make(map[string]int)
+	medias := make(map[string]int)
+	categories := make(map[string]int)
+	articles := make(map[article]int)
+
+	cats := []string{
+		"business",
+		"entertainment",
+		"general",
+		"health",
+		"science",
+		"sports",
+		"technology",
+	}
+	for i, v := range cats {
+		categories[v] = i + 1
+	}
+
+	f, err := os.Create("insert.sql")
 	defer f.Close()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Fprintln(f, "INSERT INTO STATUS VALUES(1,'ACTIV');")
-	fmt.Fprintln(f, "INSERT INTO CATEGORII VALUES(1,'TECHNOLOGY',1);")
-	for i, v := range m.Articles {
-		if len(v.Author) == 0 {
-			continue
-		}
-		var found bool
-		_, found = authors[v.Author]
-		if !found {
-			authors[v.Author] = len(authors) + 1
-			fmt.Fprintf(f, "INSERT INTO AUTORI VALUES(%d,q'[%s]',1);\n", authors[v.Author], v.Author)
-		}
-		_, found = sources[v.Source.Name]
-		if !found {
-			sources[v.Source.Name] = len(sources) + 1
-			fmt.Fprintf(f, "INSERT INTO SURSE VALUES(%d,1,q'[%s]',q'[%s]');\n", sources[v.Source.Name], v.Source.Name, v.Source.Name)
-		}
-		_, found = medias[v.URLToImage]
-		if !found {
-			medias[v.URLToImage] = len(medias) + 1
-			fmt.Fprintf(f, "INSERT INTO MEDIA VALUES(%d,q'[%s]');\n", medias[v.URLToImage], v.URLToImage)
-		}
-		fmt.Fprintf(f, "INSERT INTO ARTICOLE VALUES(%d,1,%d,1,%d,sysdate,q'[%s]',q'[%s]');\n", i+1, authors[v.Author], sources[v.Source.Name], v.Title, trimStringToLength(v.Content, 100))
-		fmt.Fprintf(f, "INSERT INTO ARTICOLE_MEDIA VALUES(%d,%d);\n", i+1, medias[v.URLToImage])
+	for key, value := range categories {
 
+		m := getArticles(apiKey, key)
+
+		fmt.Fprintf(f, "INSERT INTO CATEGORII VALUES(%d,'%s',1);\n", value, key)
+		for _, v := range m.Articles {
+			if len(v.Author) == 0 {
+				continue
+			}
+			var found bool
+			_, found = authors[v.Author]
+			if !found {
+				authors[v.Author] = len(authors) + 1
+				fmt.Fprintf(f, "INSERT INTO AUTORI VALUES(%d,q'[%s]',1);\n", authors[v.Author], v.Author)
+			}
+			_, found = sources[v.Source.Name]
+			if !found {
+				sources[v.Source.Name] = len(sources) + 1
+				fmt.Fprintf(f, "INSERT INTO SURSE VALUES(%d,1,q'[%s]',q'[%s]');\n", sources[v.Source.Name], v.Source.Name, v.Source.Name)
+			}
+			_, found = medias[v.URLToImage]
+			if !found {
+				medias[v.URLToImage] = len(medias) + 1
+				fmt.Fprintf(f, "INSERT INTO MEDIA VALUES(%d,q'[%s]');\n", medias[v.URLToImage], v.URLToImage)
+			}
+			_, found = articles[v]
+			if !found {
+				articles[v] = len(articles) + 1
+				fmt.Fprintf(f, "INSERT INTO ARTICOLE VALUES(%d,%d,%d,1,%d,sysdate,q'[%s]',q'[%s]');\n", articles[v], value, authors[v.Author], sources[v.Source.Name], v.Title, trimStringToLength(v.Content, 100))
+				fmt.Fprintf(f, "INSERT INTO ARTICOLE_MEDIA VALUES(%d,%d);\n", articles[v], medias[v.URLToImage])
+			}
+
+		}
 	}
 }
