@@ -49,7 +49,6 @@ func main() {
 	link := getLink(apiKey, "technology")
 
 	m := response{}
-	// resp, err := http.Get("http://newsapi.org/v2/top-headlines?country=us&category=technology&apiKey=69d7ce22816243a68f84cafddebbd90d")
 	resp, err := http.Get(link)
 	if err != nil {
 		fmt.Println(err)
